@@ -12,16 +12,23 @@ import datetime
 from datetime import datetime
 import codecs
 #Config parameters
-from nodeipaddr import NodeIP
-from nodeipaddr import wei
-from nodeipaddr import filename
-from nodeipaddr import dump_wallets
+from confparam import NodeIP
+from confparam import wei
+from confparam import DEBUG
+from confparam import maxchains
+from confparam import kbdstop
+from confparam import continuemode
+from confparam import filename
+from confparam import dump_wallets
+from confparam import latest_dump
+from confparam import read_wallets
+from confparam import read_last
 
 #Variables: 
 global server
 global error
+global ws
 error = [None] * 5
-DEBUG = True
 
 wallets = []
 balances = []
@@ -49,7 +56,7 @@ def ws_con():
   error[0] = None
  except:
   error[0] = "Unable to connect to " + server
-  
+
 def node_ok():
  ws.send('{"jsonrpc": "2.0", "method": "hls_ping", "params": [],'+id_rnd()+'}')
  result =  ws.recv()
@@ -133,12 +140,33 @@ def blocktx(z,chainaddr):
  return count_found         
 
 #Build wallets list
-#First add genesis subchain to the list:
-wallets.append(genesis)
-chain = wallets[0] #currently processing subchain
+
+if continuemode:          #Start processing from the latest done if True, set in confparam
+ 
+ wallets = []
+ balances = read_wallets(filename)
+ print(str(len(balances))+' items loaded')
+ for s in range (0,len(balances)):
+  wallets.append(balances[s][0])
+ print(str(len(wallets))+' wallets now')
+ balances = []
+ chain = read_last()
+ pp = wallets.index(chain)
+ print('The last processed chain was #'+str(pp)+' : '+chain) 
+ pp = pp + 1
+ chain = wallets[pp]
+ print('The next chain is #'+str(pp)+' : '+chain)
+# print(wallets)
+ input('continue  ?')
+ work = True
+ 
+else:	                    #Start processing from the beginning if False
+ wallets.append(genesis)  #First add genesis subchain to the list:
+ chain = wallets[0]       
+ work = True
 
 #LOOP until the list ends
-work = True
+
 while work:     
  print(str(chain)+' subchain is processing')
  counttx = outtx_num(chain)    # Get a number of send tx in this subchain
@@ -153,16 +181,22 @@ while work:
   found_tx = 0                  
   y = 1
   while y <= int(blockno,0) and found_tx < int(counttx,0): 
-   if DEBUG:
-    print('Processing block '+str(z)+' of subchain '+str(chain))
-    print('estimated tx num: '+str(int(counttx,0))+' done: '+str(found_tx)+' y count: '+str(y))
+#   if DEBUG:
+#    print('Processing block '+str(z)+' of subchain '+str(chain))
+#    print('estimated tx num: '+str(int(counttx,0))+' done: '+str(found_tx)+' y count: '+str(y))
 
    found_tx = found_tx + blocktx(z,chain)
    if found_tx < int(counttx,0):  #continue to next block if found tx less than estimated
     z=hex(int(z,0)+1)
     y = y + 1
- pp = wallets.index(chain)       
- if pp == len(wallets):          #STOP if the last processed /Normal STOP
+ pp = wallets.index(chain)      
+ if DEBUG:
+#  print(wallets)
+  print('chain No. '+str(pp)+' '+str(chain)+' done')
+  print('Now wallets list contains '+str(len(wallets))+' items ')
+  
+ 
+ if pp == len(wallets):          #STOP if the last processed / Normal STOP
   work = False
   supply = get_bals()
   dump_wallets(filename,balances)
@@ -170,33 +204,30 @@ while work:
  else:                           #go to the next subchain
   pp = pp + 1
   chain = wallets[pp] 
-  
- if DEBUG:
-  print(wallets)
-  print('chain No. '+str(pp-1)+' done')
-  print('Now wallets list contains '+str(len(wallets))+' items: ')
-  
+
+ if maxchains > 0:         #STOP if maxchains defined. Set value > 0 in confparam to activate
+  if pp > maxchains:                  
+   work = False
+   supply = get_bals()
+   dump_wallets(filename,balances)
+   latest_dump(wallets[pp-1])
+   print('Total HLS:  '+str(supply)) 
  
-#Manual stops for debug, remove !
- manualstop = ""                   #by keyboard
-# manualstop = input('Next chain?') 
- if manualstop == "n":
-  work = False
-  supply = get_bals()
-  dump_wallets(filename,balances)
-  print('Total HLS:  '+str(supply)) 
-
- maxchains = 20                   ## by max limit of subchains
- if pp > maxchains:                       
-  work = False
-  supply = get_bals()
-  dump_wallets(filename,balances)
-  print('Total HLS:  '+str(supply))  
-#^^Manual stops for debug, remove ! 
-
-print('There are errors: ')
+ if kbdstop:              #STOP by keyboard after each subchain. Set True in confparam to activate
+  manualstop = ""
+  manualstop = input('Next chain?') 
+  if manualstop == "n":
+   work = False
+   supply = get_bals()
+   dump_wallets(filename,balances)
+   latest_dump(wallets[pp-1])
+   print('Total HLS:  '+str(supply))    
+  
+print('There are '+str(len(error_wallets))+' errors: ')   # report Errors  detected
 for e in range (0,len(error_wallets)):
  print(str(error_wallets[e][0])+'  '+str(error_wallets[e][1]))
+if len(error_wallets) == 0:
+ print('No errors detected')
 
 # Test shit, don't care:
 """
