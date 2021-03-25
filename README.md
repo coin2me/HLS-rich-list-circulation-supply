@@ -1,5 +1,6 @@
 # HLS-rich-list-circulation-supply
 
+A smart tool to create a list of all wallets, calculate the current balance and the total supply of HLS  coins / Helios Protocol
 
 1. Set NodeIP and the output file name in confparam.py
 
