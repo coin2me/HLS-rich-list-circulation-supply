@@ -1,12 +1,11 @@
 # HLS-rich-list-circulation-supply
 
 
-1. Modify NodeIP and the output file name in nodeipaddr.py
+1. Set NodeIP and the output file name in confparam.py
 
-2. Set DEBUG = False in titanic.py in order to switch off console echo
+2. Set DEBUG to False in titanic.py in order to switch off console echo
 
-3.Modify maxchains = 20 in the string 189 to any extremely big number in order to handle all blockchain
-The limit 20 was used for the early test stage only
+3.Set maxchains to 0 to handle all the blockchain (~4h-5h estimated) 
 
 
 Start:
